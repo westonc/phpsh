@@ -1,0 +1,35 @@
+#!/usr/local/bin/php -q
+# PHP Command Shell - v 0.1 - Copyright (c) 2003 Weston Cann
+# Released under GPL version 2
+# http://www.gnu.org/licenses/gpl.txt
+<?php 
+
+function _readln() 
+{
+	$fp=fopen("/dev/stdin", "r");
+    $input=fgets($fp, 255);
+    fclose($fp);
+    return rtrim($input);
+}
+
+print "\n";
+
+foreach($argv as $arg) include_once($arg);
+
+do
+{
+	print "phpsh> ";
+	$cmdline = _readln();
+
+	$lastchar = substr($cmdline,-1);
+	if(($lastchar == ';') || ($lastchar == '}'))		// No Return Value
+		$returnval = eval($cmdline);
+	else
+		$returnval = eval("return($cmdline);");
+
+	if(isset($returnval) && !empty($returnval))
+	{ echo $returnval,"\n"; }
+	
+} while(TRUE);
+	
+?>
