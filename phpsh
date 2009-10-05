@@ -1,36 +1,86 @@
-#!/usr/bin/php -d include_path=`pwd`
-# PHP Command Shell - v 0.1 - Copyright (c) 2003 Weston Cann
+#!/usr/bin/php -q
+# PHP Command Shell - v 0.2e - Copyright (c) 2003-2009 Weston Cann
 # Released under GPL version 2, see bottom of source file for details
 # <?= __FILE__ ?>
 <?PHP 
 ini_set('display_errors',1);
+set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
+set_error_handler('phpsh_throw_error_exception',E_ALL);
 
-function readln() 
-{
+print "\n";
+
+foreach($argv as $arg) 
+	include_once($arg);
+
+do {
+	print "phpsh> ";
+	$cmdline = phpsh_readln();
+
+	$lastchar = substr($cmdline,-1);
+	if(($lastchar == ';') || ($lastchar == '}'))		// No Return Value
+		$evalExp = $cmdline;
+	else
+		$evalExp = "return($cmdline);";
+
+	try {
+		$returnval = eval($evalExp);
+		if(isset($returnval)) 
+			echo phpsh_showVar($returnval),"\n"; 
+	} catch(Exception $e) {
+		echo "CAUGHT ",$e,"\n";
+	}
+
+	
+} while(TRUE);
+
+function phpsh_readln() {
 	$fp=fopen("/dev/stdin", "r");
     $input=fgets($fp, 255);
     fclose($fp);
     return rtrim($input);
 }
 
-print "\n";
+function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
+	throw new ErrorException($str, 0, $number, $file, $line);
+	die("control flow shouldn't ever reach here");
+}
 
-foreach($argv as $arg) include_once($arg);
+function phpsh_showVar($v) {
+	// To Do: deeper inspection?
+	$rv = '(phpsh doesn\'t know how to string-ify this variable or result)';
+	if(is_object($v)) {
+		if(method_exists($v,'__toString')) 
+			$rv = $v->__toString();
+		else			
+			$rv = get_class($v);
+	} 
 
-do
-{
-	print "phpsh> ";
-	$cmdline = readln();
+	else if(is_array($v)) {
+		$rv = array('[');
+		foreach($v as $key => $val) 
+			array_push($rv,"\n  ",$key,': ',$val);
+		if(count($v) > 0) $rv[] = "\n";
+		$rv[] = ']';
+		$rv = implode(null,$rv);
+	}
 
-	$lastchar = substr($cmdline,-1);
-	if(($lastchar == ';') || ($lastchar == '}'))		// No Return Value
-		$returnval = eval($cmdline);
-	else
-		$returnval = eval("return($cmdline);");
+	else if($v === true) 
+		$rv = 'true';
 
-	if(isset($returnval) && !empty($returnval))
-	{ echo $returnval,"\n"; }
+	else if($v === false) 
+		$rv = 'false';
 	
-} while(TRUE);
+	else if($v === 0) 
+		$rv = '0';
+
+	else if($v === null) 
+		$rv = 'null';
+
+	else 
+		$rv = $v;
+
+	return $rv;
+}
+
 	
 ?>
