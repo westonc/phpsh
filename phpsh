@@ -1,20 +1,43 @@
-#!/usr/bin/php -q
-# PHP Command Shell - v 0.2e - Copyright (c) 2003-2009 Weston Cann
+#!/usr/local/bin/php 
+# PHP REPL / Shell - v 0.3a - Copyright (c) 2003-2017 Weston Cann
 # Released under GPL version 2, see bottom of source file for details
-# <?= __FILE__ ?>
-<?PHP 
+# <?= __FILE__ ?> 
+# Enter .h for help
+<?php 
 ini_set('display_errors',1);
 set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
 set_error_handler('phpsh_throw_error_exception',E_ALL);
 
 print "\n";
 
-foreach($argv as $arg) 
-	include_once($arg);
+if(isset($argv)) { // process arguments as php to execute
+	foreach($argv as $arg) 
+		include_once($arg);
+}
 
-do {
+if(is_callable("readline")) { // figure out our readline strategy
+	function phpsh_readln() { 
+		return rtrim(readline()); 
+	}
+} else {
+	function phpsh_readln() {
+		$fp=fopen("/dev/stdin", "r");
+    	$input=fgets($fp, 255);
+    	fclose($fp);
+    	return rtrim($input);
+	}
+}
+
+$history = [];
+
+do { // main read-eval-print loop
 	print "phpsh> ";
 	$cmdline = phpsh_readln();
+	$firstchar = substr($cmdline,0,1);
+	if($firstchar == '.') {
+		phpsh_cmd($cmdline);
+		continue;
+	}
 
 	$lastchar = substr($cmdline,-1);
 	if(($lastchar == ';') || ($lastchar == '}'))		// No Return Value
@@ -26,19 +49,15 @@ do {
 		$returnval = eval($evalExp);
 		if(isset($returnval)) 
 			echo phpsh_showVar($returnval),"\n"; 
+		$history[] = $cmdline;	
+	} catch(ParseError $e) {
+		echo "CAUGHT parse error",$e,"\n";
 	} catch(Exception $e) {
 		echo "CAUGHT ",$e,"\n";
 	}
-
 	
 } while(TRUE);
 
-function phpsh_readln() {
-	$fp=fopen("/dev/stdin", "r");
-    $input=fgets($fp, 255);
-    fclose($fp);
-    return rtrim($input);
-}
 
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
 	throw new ErrorException($str, 0, $number, $file, $line);
@@ -81,6 +100,52 @@ function phpsh_showVar($v) {
 
 	return $rv;
 }
+
+function phpsh_cmd($cmdline) {
+	$cmd_parts = preg_split("/\s+/",substr($cmdline,1),null,PREG_SPLIT_NO_EMPTY);
+	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
+	switch($cmd) {
+		case 'q': 
+			exit;
+		case 's': 
+			phpsh_cmd_save($cmd_parts[1] ?? null);
+			break;
+		case 'h': 
+			phpsh_cmd_help();
+			break;
+		default:
+			echo "$cmdline -- command not found.";
+			phpsh_cmd_help();
+	}
+
+}
+
+function phpsh_cmd_save($filename) {
+	global $history;
+	if(!$filename) {
+		$filename = "phpsh.hist";
+		echo "save command .s needs target file, using phpsh.hist in current working directory ",getcwd(),"\n";
+	} 
+	$output = "<?php \n\n".implode(";\n",$history).";";
+	if(!file_put_contents($filename,$output))
+		echo "error writing file $filename\n";
+	else
+		echo "saved history to $filename\n";
+}
+
+function phpsh_cmd_help() {
+	echo <<<EOD
+Available phpsh commands:
+	.h       - prints this command list
+	.s <arg> - saves command history to filename <arg>
+	.q       - quit
+
+Beyond that, everything else is simply filtered through PHP's `eval` function. phpsh will attempt to automatically yield a string representation of entries that don't end with a semi-colon or a block delimiter. 
+
+EOD;
+}
+
+
 
 	
 ?>
