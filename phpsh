@@ -1,5 +1,5 @@
-#!/usr/local/bin/php 
-# PHP REPL / Shell - v 0.3a - Copyright (c) 2003-2017 Weston Cann
+#!/usr/local/bin/php72
+# PHP REPL / Shell - v 0.4 - Copyright (c) 2003-2018 Weston Cann
 # Released under GPL version 2, see bottom of source file for details
 # <?= __FILE__ ?> 
 # Enter .h for help
@@ -7,12 +7,18 @@
 ini_set('display_errors',1);
 set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
 set_error_handler('phpsh_throw_error_exception',E_ALL);
+register_shutdown_function('phpsh_on_shutdown');
+define('DEFAULT_HIST','phpsh_crash.hist');
+$history = [];
 
 print "\n";
 
 if(isset($argv)) { // process arguments as php to execute
 	foreach($argv as $arg) 
-		include_once($arg);
+		if($arg != "-r") 
+			include_once($arg);
+		else
+			include_once(DEFAULT_HIST);
 }
 
 if(is_callable("readline")) { // figure out our readline strategy
@@ -22,32 +28,58 @@ if(is_callable("readline")) { // figure out our readline strategy
 } else {
 	function phpsh_readln() {
 		$fp=fopen("/dev/stdin", "r");
-    	$input=fgets($fp, 255);
+    	$input=fgets($fp, 4096);
     	fclose($fp);
     	return rtrim($input);
 	}
 }
 
-$history = [];
-
 do { // main read-eval-print loop
 	print "phpsh> ";
 	$cmdline = phpsh_readln();
+
+	if(!$cmdline) 
+		continue;
+
 	$firstchar = substr($cmdline,0,1);
-	if($firstchar == '.') {
-		phpsh_cmd($cmdline);
+	if($firstchar == '.') {  // phpsh-specific commands
+		$sub = trim(substr($cmdline,1));
+		if(!$sub) {
+			echo "missing phpsh command?\n";
+			continue;
+		}
+		$cmd_parts = preg_split("/\s+/",substr($cmdline,1),null,PREG_SPLIT_NO_EMPTY);
+		$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
+		switch($cmd) {
+			case 'q': 
+				exit;
+			case 's': 
+				phpsh_cmd_save($cmd_parts[1] ?? null);
+				break;
+			case 'r':
+			case 'l':
+				include($cmd_parts[1] ?? DEFAULT_HIST);
+				break;
+			default:
+				echo "$cmdline -- command not found.\n";
+			case 'h': 
+				phpsh_cmd_help();
+		}
 		continue;
 	}
 
 	$lastchar = substr($cmdline,-1);
-	if(($lastchar == ';') || ($lastchar == '}'))		// No Return Value
+	if(($lastchar == ';') || ($lastchar == '}')) {// No Return Value
 		$evalExp = $cmdline;
-	else
+		$type = 'instructions';
+	} else {
 		$evalExp = "return($cmdline);";
+		$type = 'expression';
+	}
 
 	try {
 		$returnval = eval($evalExp);
-		if(isset($returnval)) 
+		if($type == 'expression')
 			echo phpsh_showVar($returnval),"\n"; 
 		$history[] = $cmdline;	
 	} catch(ParseError $e) {
@@ -67,65 +99,35 @@ function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line =
 function phpsh_showVar($v) {
 	// To Do: deeper inspection?
 	$rv = '(phpsh doesn\'t know how to string-ify this variable or result)';
-	if(is_object($v)) {
-		if(method_exists($v,'__toString')) 
-			$rv = $v->__toString();
-		else			
-			$rv = get_class($v);
-	} 
 
-	else if(is_array($v)) {
+	if(is_array($v)) {
 		$rv = array('[');
 		foreach($v as $key => $val) 
-			array_push($rv,"\n  ",$key,': ',$val);
+			array_push($rv,"\n  ",$key,' => ',phpsh_showVar($val));
 		if(count($v) > 0) $rv[] = "\n";
 		$rv[] = ']';
 		$rv = implode(null,$rv);
 	}
-
-	else if($v === true) 
-		$rv = 'true';
-
-	else if($v === false) 
-		$rv = 'false';
-	
-	else if($v === 0) 
-		$rv = '0';
-
 	else if($v === null) 
-		$rv = 'null';
-
+		$rv = "null";
+	else if(is_object($v) && method_exists($v,'__toString')) 
+		$rv = $v->__toString();
 	else 
-		$rv = $v;
+		$rv = var_export($v,true);
 
 	return $rv;
 }
 
-function phpsh_cmd($cmdline) {
-	$cmd_parts = preg_split("/\s+/",substr($cmdline,1),null,PREG_SPLIT_NO_EMPTY);
-	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
-	switch($cmd) {
-		case 'q': 
-			exit;
-		case 's': 
-			phpsh_cmd_save($cmd_parts[1] ?? null);
-			break;
-		case 'h': 
-			phpsh_cmd_help();
-			break;
-		default:
-			echo "$cmdline -- command not found.";
-			phpsh_cmd_help();
-	}
 
-}
 
-function phpsh_cmd_save($filename) {
+function phpsh_cmd_save($filename,$avoid_last=false) {
 	global $history;
 	if(!$filename) {
 		$filename = "phpsh.hist";
 		echo "save command .s needs target file, using phpsh.hist in current working directory ",getcwd(),"\n";
 	} 
+	if($avoid_last) 
+		array_pop($history);
 	$output = "<?php \n\n".implode(";\n",$history).";";
 	if(!file_put_contents($filename,$output))
 		echo "error writing file $filename\n";
@@ -134,18 +136,26 @@ function phpsh_cmd_save($filename) {
 }
 
 function phpsh_cmd_help() {
+	$default_hist = DEFAULT_HIST;
 	echo <<<EOD
 Available phpsh commands:
-	.h       - prints this command list
-	.s <arg> - saves command history to filename <arg>
-	.q       - quit
+  .h       - prints this command list
+  .s <arg> - saves command history to filename <arg>
+  .l <arg> - shortcut for include(<arg>)
+  .r       - shortcut for include("$default_hist")
+  .q       - quit
 
 Beyond that, everything else is simply filtered through PHP's `eval` function. phpsh will attempt to automatically yield a string representation of entries that don't end with a semi-colon or a block delimiter. 
 
 EOD;
 }
 
-
-
-	
+function phpsh_on_shutdown() {
+	$err = error_get_last();	
+	if($err && ($err['type'] === E_ERROR)) {
+		phpsh_cmd_save(DEFAULT_HIST);
+		echo "history saved to ",DEFAULT_HIST,", use .r on next run to replay";
+	}
+	echo "\n";
+}
 ?>
