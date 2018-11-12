@@ -1,5 +1,5 @@
-#!/usr/local/bin/php72
-# PHP REPL / Shell - v 0.4 - Copyright (c) 2003-2018 Weston Cann
+#!/usr/local/bin/php72 -q
+# PHP REPL / Shell - v 0.5 - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
 # Released under GPL version 2, see bottom of source file for details
 # <?= __FILE__ ?> 
 # Enter .h for help
@@ -8,7 +8,8 @@ ini_set('display_errors',1);
 set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
 set_error_handler('phpsh_throw_error_exception',E_ALL);
 register_shutdown_function('phpsh_on_shutdown');
-define('DEFAULT_HIST','phpsh_crash.hist');
+define('DEFAULT_CRASH','phpsh_crash.hist');
+define('DEFAULT_HIST','phpsh.hist');
 $history = [];
 
 print "\n";
@@ -18,7 +19,7 @@ if(isset($argv)) { // process arguments as php to execute
 		if($arg != "-r") 
 			include_once($arg);
 		else
-			include_once(DEFAULT_HIST);
+			include_once(DEFAULT_CRASH); 
 }
 
 if(is_callable("readline")) { // figure out our readline strategy
@@ -56,10 +57,20 @@ do { // main read-eval-print loop
 			case 's': 
 				phpsh_cmd_save($cmd_parts[1] ?? null);
 				break;
-			case 'r':
 			case 'l':
-				include($cmd_parts[1] ?? DEFAULT_HIST);
+				$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
+				if(file_exists($histfile)) 
+					include($histfile);
+				else 
+					echo "can't find $histfile\n";
 				break;
+			case 'r':
+				if(file_exists(DEFAULT_CRASH))
+					include(DEFAULT_CRASH);
+				else 
+					echo "can't find ",DEFAULT_CRASH,"\n";
+				break;
+			case 'r':
 			default:
 				echo "$cmdline -- command not found.\n";
 			case 'h': 
@@ -84,8 +95,8 @@ do { // main read-eval-print loop
 		$history[] = $cmdline;	
 	} catch(ParseError $e) {
 		echo "CAUGHT parse error",$e,"\n";
-	} catch(Exception $e) {
-		echo "CAUGHT ",$e,"\n";
+	} catch(\Throwable $t) {
+		echo "CAUGHT ",$t,"\n";
 	}
 	
 } while(TRUE);
@@ -123,8 +134,8 @@ function phpsh_showVar($v) {
 function phpsh_cmd_save($filename,$avoid_last=false) {
 	global $history;
 	if(!$filename) {
-		$filename = "phpsh.hist";
-		echo "save command .s needs target file, using phpsh.hist in current working directory ",getcwd(),"\n";
+		$filename = DEFAULT_HIST;
+		echo "save command .s needs target file, using ",DEFAULT_HIST," in current working directory ",getcwd(),"\n";
 	} 
 	if($avoid_last) 
 		array_pop($history);
@@ -136,13 +147,13 @@ function phpsh_cmd_save($filename,$avoid_last=false) {
 }
 
 function phpsh_cmd_help() {
-	$default_hist = DEFAULT_HIST;
+	$default_crash = DEFAULT_CRASH;
 	echo <<<EOD
 Available phpsh commands:
   .h       - prints this command list
   .s <arg> - saves command history to filename <arg>
   .l <arg> - shortcut for include(<arg>)
-  .r       - shortcut for include("$default_hist")
+  .r       - shortcut for include("$default_crash")
   .q       - quit
 
 Beyond that, everything else is simply filtered through PHP's `eval` function. phpsh will attempt to automatically yield a string representation of entries that don't end with a semi-colon or a block delimiter. 
@@ -153,8 +164,8 @@ EOD;
 function phpsh_on_shutdown() {
 	$err = error_get_last();	
 	if($err && ($err['type'] === E_ERROR)) {
-		phpsh_cmd_save(DEFAULT_HIST);
-		echo "history saved to ",DEFAULT_HIST,", use .r on next run to replay";
+		phpsh_cmd_save(DEFAULT_CRASH);
+		echo "history saved to ",DEFAULT_CRASH,", use .r on next run to replay";
 	}
 	echo "\n";
 }
