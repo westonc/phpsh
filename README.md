@@ -9,3 +9,4 @@ Simple read-eval-print loop for PHP with a few extra conveniences including:
 
 Works with PHP 7+ (would likely work back through 4.2, replacing \Throwable with Exception). 
 
+Works best if you're using PHP cli executable built with the `--with-readline` or `--with-libedit` options.
