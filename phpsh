@@ -1,8 +1,7 @@
-#!/usr/local/bin/php72 -q
-# PHP REPL / Shell - v 0.5 - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
-# Released under GPL version 2, see bottom of source file for details
+#!/usr/local/bin/php 
+# PHP REPL / Shell - v 0.7 - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
+# Released under GPL v2, see bottom of source file for details
 # <?= __FILE__ ?> 
-# Enter .h for help
 <?php 
 ini_set('display_errors',1);
 set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
@@ -11,8 +10,6 @@ register_shutdown_function('phpsh_on_shutdown');
 define('DEFAULT_CRASH','phpsh_crash.hist');
 define('DEFAULT_HIST','phpsh.hist');
 $history = [];
-
-print "\n";
 
 if(isset($argv)) { // process arguments as php to execute
 	foreach($argv as $arg) 
@@ -23,11 +20,15 @@ if(isset($argv)) { // process arguments as php to execute
 }
 
 if(is_callable("readline")) { // figure out our readline strategy
-	function phpsh_readln() { 
-		return rtrim(readline()); 
+	print "# phpsh_readln -> readline\n";
+	
+	function phpsh_readln($prompt) { 
+		return rtrim(readline($prompt)); 
 	}
 } else {
-	function phpsh_readln() {
+	print "# phpsh_readln -> /dev/stdin\n";
+	function phpsh_readln($prompt) {
+		print $prompt;
 		$fp=fopen("/dev/stdin", "r");
     	$input=fgets($fp, 4096);
     	fclose($fp);
@@ -35,9 +36,10 @@ if(is_callable("readline")) { // figure out our readline strategy
 	}
 }
 
+print "# Enter .h for help\n\n";
+
 do { // main read-eval-print loop
-	print "phpsh> ";
-	$cmdline = phpsh_readln();
+	$cmdline = phpsh_readln("phpsh> ");
 
 	if(!$cmdline) 
 		continue;
@@ -93,10 +95,12 @@ do { // main read-eval-print loop
 		if($type == 'expression')
 			echo phpsh_showVar($returnval),"\n"; 
 		$history[] = $cmdline;	
-	} catch(ParseError $e) {
-		echo "CAUGHT parse error",$e,"\n";
-	} catch(\Throwable $t) {
-		echo "CAUGHT ",$t,"\n";
+		if(function_exists('readline_add_history'))
+			readline_add_history($cmdline);
+	} catch(ParseError $last_e) {
+		echo "CAUGHT parse error",$last_e,"\n";
+	} catch(\Throwable $last_t) {
+		echo "CAUGHT ",$last_t,"\n";
 	}
 	
 } while(TRUE);
