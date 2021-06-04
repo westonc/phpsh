@@ -1,6 +1,6 @@
 #!/usr/local/bin/php 
 # PHP REPL / Shell - v 0.7 - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
-# Released under GPL v2, see bottom of source file for details
+# Released under GPL v2
 # <?= __FILE__ ?> 
 <?php 
 ini_set('display_errors',1);
@@ -39,45 +39,15 @@ if(is_callable("readline")) { // figure out our readline strategy
 print "# Enter .h for help\n\n";
 
 do { // main read-eval-print loop
-	$cmdline = phpsh_readln("phpsh> ");
+	$cmdraw = phpsh_readln("phpsh> ");
+	$cmdline = trim($cmdraw);
 
 	if(!$cmdline) 
 		continue;
 
-	$firstchar = substr($cmdline,0,1);
-	if($firstchar == '.') {  // phpsh-specific commands
-		$sub = trim(substr($cmdline,1));
-		if(!$sub) {
-			echo "missing phpsh command?\n";
-			continue;
-		}
-		$cmd_parts = preg_split("/\s+/",substr($cmdline,1),null,PREG_SPLIT_NO_EMPTY);
-		$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
-		switch($cmd) {
-			case 'q': 
-				exit;
-			case 's': 
-				phpsh_cmd_save($cmd_parts[1] ?? null);
-				break;
-			case 'l':
-				$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
-				if(file_exists($histfile)) 
-					include($histfile);
-				else 
-					echo "can't find $histfile\n";
-				break;
-			case 'r':
-				if(file_exists(DEFAULT_CRASH))
-					include(DEFAULT_CRASH);
-				else 
-					echo "can't find ",DEFAULT_CRASH,"\n";
-				break;
-			case 'r':
-			default:
-				echo "$cmdline -- command not found.\n";
-			case 'h': 
-				phpsh_cmd_help();
-		}
+	$firstchar = substr($cmdline,0,1);  // if the command starts with a .
+	if($firstchar == '.') {             // it's a phpsh-specific command
+		phpsh_cmd(substr($cmdline,1));
 		continue;
 	}
 
@@ -109,6 +79,42 @@ do { // main read-eval-print loop
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
 	throw new ErrorException($str, 0, $number, $file, $line);
 	die("control flow shouldn't ever reach here");
+}
+
+function phpsh_cmd($cmdstr) {
+	if(!$cmdstr) {
+		echo "missing phpsh command\n";
+		return false;
+	}
+	$cmd_parts = preg_split("/\s+/",$cmdstr,null,PREG_SPLIT_NO_EMPTY);
+	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
+	switch($cmd) {
+		case 'q': 
+			exit;
+		case 's': 
+			phpsh_cmd_save($cmd_parts[1] ?? null);
+			break;
+		case 'l':
+			$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
+			if(file_exists($histfile)) 
+				include($histfile);
+			else 
+				echo "can't find $histfile\n";
+			break;
+		case 'r':
+			if(file_exists(DEFAULT_CRASH))
+				include(DEFAULT_CRASH);
+			else 
+				echo "can't find ",DEFAULT_CRASH,"\n";
+			break;
+		case 'h': 
+			phpsh_cmd_help();
+			break;
+		default:
+			echo "`$cmdstr`: command not found.\n";
+			return false;
+	}
+	return true;
 }
 
 function phpsh_showVar($v) {
