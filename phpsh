@@ -26,7 +26,8 @@ if(is_callable("readline")) { // figure out our readline strategy
 		return rtrim(readline($prompt)); 
 	}
 } else {
-	print "# phpsh_readln -> /dev/stdin\n";
+	print "# phpsh_readln -> /dev/stdin \n";
+	print "# (add libreadline or libedit to your php runtime for a better experience!) \n";
 	function phpsh_readln($prompt) {
 		print $prompt;
 		$fp=fopen("/dev/stdin", "r");
