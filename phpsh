@@ -1,5 +1,5 @@
 #!/usr/local/bin/php 
-# PHP REPL / Shell - v 0.7 - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
+# PHP REPL / Shell - v0.8a - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
 # Released under GPL v2
 # <?= __FILE__ ?> 
 <?php 
@@ -9,6 +9,8 @@ set_error_handler('phpsh_throw_error_exception',E_ALL);
 register_shutdown_function('phpsh_on_shutdown');
 define('DEFAULT_CRASH','phpsh_crash.hist');
 define('DEFAULT_HIST','phpsh.hist');
+define('MAIN_PROMPT','phpsh> ');
+define('CONT_PROMPT','     … ');
 $history = [];
 
 if(isset($argv)) { // process arguments as php to execute
@@ -40,24 +42,26 @@ if(is_callable("readline")) { // figure out our readline strategy
 print "# Enter .h for help\n\n";
 
 do { // main read-eval-print loop
-	$cmdraw = phpsh_readln("phpsh> ");
-	$cmdline = trim($cmdraw);
 
-	if(!$cmdline) 
+	$entry = phpsh_read_entry();
+
+	if(!$entry || !$entry['code']) 
 		continue;
 
-	$firstchar = substr($cmdline,0,1);  // if the command starts with a .
-	if($firstchar == '.') {             // it's a phpsh-specific command
-		phpsh_cmd(substr($cmdline,1));
+	if($entry['code'][0] == '.') {   // it's a phpsh-specific command
+		phpsh_cmd(substr($entry,1));
 		continue;
 	}
 
-	$lastchar = substr($cmdline,-1);
-	if(($lastchar == ';') || ($lastchar == '}')) {// No Return Value
-		$evalExp = $cmdline;
+	//echo "entry: ",var_export($entry,true),"\n";
+
+	if(($entry['last'] == ';') || ($entry['last'] == '}')) { 
+		// statement or block definiton: no return Value
+		$evalExp = $entry['code'];
 		$type = 'instructions';
 	} else {
-		$evalExp = "return($cmdline);";
+		// expression: we want to display the value
+		$evalExp = "return({$entry['code']});";
 		$type = 'expression';
 	}
 
@@ -65,13 +69,14 @@ do { // main read-eval-print loop
 		$returnval = eval($evalExp);
 		if($type == 'expression')
 			echo phpsh_showVar($returnval),"\n"; 
-		$history[] = $cmdline;	
+		$history[] = $entry['code'];	
 		if(function_exists('readline_add_history'))
-			readline_add_history($cmdline);
-	} catch(ParseError $last_e) {
-		echo "CAUGHT parse error",$last_e,"\n";
+			readline_add_history($entry['code']);
+	} catch(ParseError $last_err) {
+		echo "CAUGHT parse error",$last_err,"\n";
 	} catch(\Throwable $last_t) {
 		echo "CAUGHT ",$last_t,"\n";
+		$last_err = $last_t;
 	}
 	
 } while(TRUE);
@@ -80,6 +85,47 @@ do { // main read-eval-print loop
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
 	throw new ErrorException($str, 0, $number, $file, $line);
 	die("control flow shouldn't ever reach here");
+}
+
+function phpsh_line_analyze($line) {
+	$brace_depth_chg = 0;
+	$toks = token_get_all('<?php '.trim($line));
+	foreach($toks as $t) {
+		switch($t[0] ?? $t) {
+			case '{': 
+			case T_CURLY_OPEN: $brace_depth_chg++; break;
+			//case T_CURLY_CLOSE: doesn't exist? What?
+			case '}': $brace_depth_chg--; 
+		}
+	}
+	return [
+		'brace_depth_chg' => $brace_depth_chg,
+		'last' => $t
+	];
+}
+
+function phpsh_read_entry() {
+	$line = phpsh_readln(MAIN_PROMPT);
+	if($line[0] == '.') 
+		return $line;
+
+	$brace_depth = 0;
+	$done = false;
+	do {
+		$a = phpsh_line_analyze($line);
+		$brace_depth += $a['brace_depth_chg'];
+		$lines[] = $line;
+		if($brace_depth == 0) {
+			$done = true;
+			$line = implode("\n",$lines);
+		} else
+			$line = phpsh_readln(CONT_PROMPT);
+	} while (!$done);
+
+	return [
+		'last' => $a['last'],
+		'code' => $line,
+	];
 }
 
 function phpsh_cmd($cmdstr) {
