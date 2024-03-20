@@ -174,7 +174,7 @@ function phpsh_showVar($v) {
 			array_push($rv,"\n  ",$key,' => ',phpsh_showVar($val));
 		if(count($v) > 0) $rv[] = "\n";
 		$rv[] = ']';
-		$rv = implode(null,$rv);
+		$rv = implode('',$rv);
 	}
 	else if($v === null) 
 		$rv = "null";
