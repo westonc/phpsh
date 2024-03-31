@@ -106,6 +106,8 @@ function phpsh_line_analyze($line) {
 
 function phpsh_read_entry() {
 	$line = phpsh_readln(MAIN_PROMPT);
+	if(empty($line[0]))
+		return $line;
 	if($line[0] == '.') 
 		return $line;
 
