@@ -1,8 +1,10 @@
-#!/usr/local/bin/php 
+#!/usr/bin/env php
 # PHP REPL / Shell - v0.8a - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
 # Released under GPL v2
+# <?= PHP_BINARY ?> (<?= phpversion(); ?>)
 # <?= __FILE__ ?> 
 <?php 
+date_default_timezone_set("utc");
 ini_set('display_errors',1);
 set_include_path(get_include_path() . PATH_SEPARATOR. dirname(__FILE__));
 set_error_handler('phpsh_throw_error_exception',E_ALL);
@@ -16,9 +18,9 @@ $history = [];
 if(isset($argv)) { // process arguments as php to execute
 	foreach($argv as $arg) 
 		if($arg != "-r") 
-			include_once($arg);
+			phpsh_include($arg);
 		else
-			include_once(DEFAULT_CRASH); 
+			phpsh_include(DEFAULT_CRASH); 
 }
 
 if(is_callable("readline")) { // figure out our readline strategy
@@ -41,6 +43,7 @@ if(is_callable("readline")) { // figure out our readline strategy
 
 print "# Enter .h for help\n\n";
 
+phpsh_repl:
 do { // main read-eval-print loop
 
 	$entry = phpsh_read_entry();
@@ -146,13 +149,13 @@ function phpsh_cmd($cmdstr) {
 		case 'l':
 			$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
 			if(file_exists($histfile)) 
-				include($histfile);
+				phpsh_include($histfile);
 			else 
 				echo "can't find $histfile\n";
 			break;
 		case 'r':
 			if(file_exists(DEFAULT_CRASH))
-				include(DEFAULT_CRASH);
+				phpsh_include(DEFAULT_CRASH);
 			else 
 				echo "can't find ",DEFAULT_CRASH,"\n";
 			break;
@@ -164,6 +167,12 @@ function phpsh_cmd($cmdstr) {
 			return false;
 	}
 	return true;
+}
+
+function phpsh_include($file) {
+	if(preg_match('/phpsh$/',$file)) return true;
+	echo "phpsh_include($file)\n";
+	return file_exists($file) ? include_once($file) : false;
 }
 
 function phpsh_showVar($v) {
