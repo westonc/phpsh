@@ -1,8 +1,7 @@
 #!/usr/bin/env php
-# PHP REPL / Shell - v0.8a - Copyright (c) 2003-<?= date('Y') ?> Weston Cann
-# Released under GPL v2
-# <?= PHP_BINARY ?> (<?= phpversion(); ?>)
-# <?= __FILE__ ?> 
+# PHP REPL/Shell v0.8b		(c) 2003-<?= date('Y') ?> Weston Cann, GPL2 license 
+# runtime: <?= PHP_BINARY ?> (<?= phpversion(); ?>)
+# script:  <?= __FILE__ ?> 
 <?php 
 date_default_timezone_set("utc");
 ini_set('display_errors',1);
@@ -47,25 +46,34 @@ phpsh_repl:
 do { // main read-eval-print loop
 
 	$entry = phpsh_read_entry();
+	/* returns: 
+	     null   | if the entry/line is empty => null
+	     string | if the entry/line if starts w dot & is non-numeric 
+	     array (w keys 'code' & 'last') | all other cases
 
-	if(!$entry || !$entry['code']) 
+	   So let's handle each case:  
+     */
+	
+	if(empty($entry))                             // easy case!
 		continue;
 
-	if($entry['code'][0] == '.') {   // it's a phpsh-specific command
+	if(is_string($entry) && $entry[0] == '.') {   // phpsh command
 		phpsh_cmd(substr($entry,1));
 		continue;
 	}
 
-	//echo "entry: ",var_export($entry,true),"\n";
-
-	if(($entry['last'] == ';') || ($entry['last'] == '}')) { 
-		// statement or block definiton: no return Value
+	// we *should* have an array with keys 'code' & 'last' 
+	if($entry['last'] == ';' || $entry['last'] == '}') { 
+		// "instructions" statement or block definiton: no return Value
 		$evalExp = $entry['code'];
 		$type = 'instructions';
-	} else {
+	} else if(isset($entry['code'])) {
 		// expression: we want to display the value
 		$evalExp = "return({$entry['code']});";
 		$type = 'expression';
+	} else {
+		echo "🍅 unexpected entry",phpsh_showVar($entry),"\n";
+		$evalExp = "\"🍅 Can't Process \"";
 	}
 
 	try {
@@ -110,8 +118,9 @@ function phpsh_line_analyze($line) {
 function phpsh_read_entry() {
 	$line = phpsh_readln(MAIN_PROMPT);
 	if(empty($line[0]))
-		return $line;
-	if($line[0] == '.') 
+		return null;
+
+	if(isset($line[0]) && $line[0] == '.' && !is_numeric($line[1])) 
 		return $line;
 
 	$brace_depth = 0;
@@ -122,14 +131,14 @@ function phpsh_read_entry() {
 		$lines[] = $line;
 		if($brace_depth == 0) {
 			$done = true;
-			$line = implode("\n",$lines);
+			$entry = implode("\n",$lines);
 		} else
-			$line = phpsh_readln(CONT_PROMPT);
+			$entry = phpsh_readln(CONT_PROMPT);
 	} while (!$done);
 
 	return [
 		'last' => $a['last'],
-		'code' => $line,
+		'code' => $entry,
 	];
 }
 
@@ -138,7 +147,8 @@ function phpsh_cmd($cmdstr) {
 		echo "missing phpsh command\n";
 		return false;
 	}
-	$cmd_parts = preg_split("/\s+/",$cmdstr,null,PREG_SPLIT_NO_EMPTY);
+	$cmd_parts = preg_split("/\s+/",$cmdstr,-1,PREG_SPLIT_NO_EMPTY);
+
 	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
 	switch($cmd) {
 		case 'q': 
