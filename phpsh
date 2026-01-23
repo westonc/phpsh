@@ -62,7 +62,7 @@ do { // main read-eval-print loop
 		continue;
 	}
 
-	// we *should* have an array with keys 'code' & 'last' 
+	// otherwise we *should* have an array with keys 'code' & 'last' 
 	if($entry['last'] == ';' || $entry['last'] == '}') { 
 		// "instructions" statement or block definiton: no return Value
 		$evalExp = $entry['code'];
@@ -131,14 +131,14 @@ function phpsh_read_entry() {
 		$lines[] = $line;
 		if($brace_depth == 0) {
 			$done = true;
-			$entry = implode("\n",$lines);
+			$line = implode("\n",$lines);
 		} else
-			$entry = phpsh_readln(CONT_PROMPT);
+			$line = phpsh_readln(CONT_PROMPT);
 	} while (!$done);
 
 	return [
 		'last' => $a['last'],
-		'code' => $entry,
+		'code' => $line,
 	];
 }
 
