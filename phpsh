@@ -73,7 +73,7 @@ do { // main read-eval-print loop
 		$type = 'expression';
 	} else {
 		echo "🍅 unexpected entry",phpsh_showVar($entry),"\n";
-		$evalExp = "\"🍅 Can't Process \"";
+		$evalExp = "\"🍅 can't process unexpected entry\"";
 	}
 
 	try {
@@ -83,11 +83,10 @@ do { // main read-eval-print loop
 		$history[] = $entry['code'];	
 		if(function_exists('readline_add_history'))
 			readline_add_history($entry['code']);
-	} catch(ParseError $last_err) {
-		echo "CAUGHT parse error",$last_err,"\n";
-	} catch(\Throwable $last_t) {
-		echo "CAUGHT ",$last_t,"\n";
-		$last_err = $last_t;
+	} catch(ParseError $_e) {
+		echo "CAUGHT parse error",$_e,"\n";
+	} catch(\Throwable $_e) {
+		echo "CAUGHT throwable ",$_e,"\n";
 	}
 	
 } while(TRUE);
