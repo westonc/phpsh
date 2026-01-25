@@ -77,9 +77,9 @@ do { // main read-eval-print loop
 	}
 
 	try {
-		$returnval = eval($evalExp);
+		$_ = eval($evalExp);
 		if($type == 'expression')
-			echo phpsh_showVar($returnval),"\n"; 
+			echo phpsh_showVar($_),"\n"; 
 		$history[] = $entry['code'];	
 		if(function_exists('readline_add_history'))
 			readline_add_history($entry['code']);
