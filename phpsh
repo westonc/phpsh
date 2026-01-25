@@ -11,7 +11,7 @@ register_shutdown_function('phpsh_on_shutdown');
 define('DEFAULT_CRASH','phpsh_crash.hist');
 define('DEFAULT_HIST','phpsh.hist');
 define('MAIN_PROMPT','phpsh> ');
-define('CONT_PROMPT','     … ');
+define('CONT_PROMPT','  ...> ');
 $history = [];
 
 if(isset($argv)) { // process arguments as php to execute
