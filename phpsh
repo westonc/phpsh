@@ -91,7 +91,6 @@ do { // main read-eval-print loop
 	
 } while(TRUE);
 
-
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
 	throw new ErrorException($str, 0, $number, $file, $line);
 	die("control flow shouldn't ever reach here");
@@ -184,29 +183,40 @@ function phpsh_include($file) {
 	return file_exists($file) ? include_once($file) : false;
 }
 
-function phpsh_showVar($v) {
-	// To Do: deeper inspection?
-	$rv = '(phpsh doesn\'t know how to string-ify this variable or result)';
+function phpsh_cols() { return (int)(getenv('COLUMNS') ?: `tput cols`); }
 
-	if(is_array($v)) {
-		$rv = array('[');
-		foreach($v as $key => $val) 
-			array_push($rv,"\n  ",$key,' => ',phpsh_showVar($val));
-		if(count($v) > 0) $rv[] = "\n";
-		$rv[] = ']';
-		$rv = implode('',$rv);
+function phpsh_objkv($obj) {  return (array)$obj; }
+
+function phpsh_lsaa_str($aa,$entrysep = "\n") { 
+	$rv = array('[');
+	$cols = phpsh_cols();
+	foreach($aa as $k => $v) {
+		$maxproplen = $cols - strlen($k) - 8;
+		$valstr = phpsh_showVar($v,'');
+		array_push($rv,$entrysep,"  ",$k,' => ',substr($valstr,0,$maxproplen),strlen($valstr) > $maxproplen ? '…' : '');
 	}
-	else if($v === null) 
-		$rv = "null";
-	else if(is_object($v) && method_exists($v,'__toString')) 
-		$rv = $v->__toString();
-	else 
-		$rv = var_export($v,true);
-
+	if(count($aa) > 0) $rv[] = $entrysep;
+	$rv[] = ']';
+	$rv = implode('',$rv);
 	return $rv;
 }
 
+function phpsh_showVar($v,$entrysep = "\n") {
+	// if(is_object($v) && method_exists($v,'__to_string')) 
+	//	return $v->__toString();
+	// $rv = '(phpsh doesn\'t know how to string-ify this variable or result)';
+	
+	if(is_object($v)) 
+		return get_class($v).'('.phpsh_showVar((array)$v,$entrysep).')';
 
+	if(is_array($v)) 
+		return phpsh_lsaa_str($v,$entrysep);
+
+	if($v === null) 
+		return "null";
+	else 
+		return var_export($v,true);
+}
 
 function phpsh_cmd_save($filename,$avoid_last=false) {
 	global $history;
