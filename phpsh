@@ -154,6 +154,7 @@ function phpsh_cmd($cmdstr) {
 		case 's': 
 			phpsh_cmd_save($cmd_parts[1] ?? null);
 			break;
+		case 'i':
 		case 'l':
 			$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
 			if(file_exists($histfile)) 
