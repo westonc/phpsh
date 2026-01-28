@@ -190,8 +190,6 @@ function phpsh_include($file) {
 
 function phpsh_cols() { return (int)(getenv('COLUMNS') ?: `tput cols`); }
 
-function phpsh_objkv($obj) {  return (array)$obj; }
-
 function phpsh_lsaa_str($aa,$maxlen=false) { 
 	if(! count($aa) > 0) return '[]';
 	$oneline = ($maxlen !== false);
