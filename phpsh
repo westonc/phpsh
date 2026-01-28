@@ -91,6 +91,7 @@ do { // main read-eval-print loop
 	
 } while(TRUE);
 
+
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
 	throw new ErrorException($str, 0, $number, $file, $line);
 	die("control flow shouldn't ever reach here");
@@ -168,6 +169,9 @@ function phpsh_cmd($cmdstr) {
 			else 
 				echo "can't find ",DEFAULT_CRASH,"\n";
 			break;
+		case 'v': 
+			echo "todo - focus on scope:\n";
+			break;	
 		case 'h': 
 			phpsh_cmd_help();
 			break;
@@ -188,35 +192,60 @@ function phpsh_cols() { return (int)(getenv('COLUMNS') ?: `tput cols`); }
 
 function phpsh_objkv($obj) {  return (array)$obj; }
 
-function phpsh_lsaa_str($aa,$entrysep = "\n") { 
-	$rv = array('[');
-	$cols = phpsh_cols();
+function phpsh_lsaa_str($aa,$maxlen=false) { 
+	if(! count($aa) > 0) return '[]';
+	$oneline = ($maxlen !== false);
+	$entrysep = $oneline ? ', ' : ','.PHP_EOL.' ';
+	$termcols = phpsh_cols();
+	$entrychrload = strlen($entrysep)+2/*'key'*/+4/* => */+2/*''|[]*/;
+	$sep = '';
+	$rv = [];
+	$entrieschrcount = 0;
 	foreach($aa as $k => $v) {
-		$maxproplen = $cols - strlen($k) - 8;
-		$valstr = phpsh_showVar($v,'');
-		array_push($rv,$entrysep,"  ",$k,' => ',substr($valstr,0,$maxproplen),strlen($valstr) > $maxproplen ? '…' : '');
+		$entrychrloadwkey = strlen($k) + $entrychrload;
+		$vstr = phpsh_showVar($v, $termcols - $entrychrloadwkey);
+		if($oneline && ($maxlen <= $entrieschrcount + $entrychrloadwkey)) {
+			// we don't even have room for the key before we run over cols
+			array_push($rv,$sep,"'…' => '…'");
+			break;
+		}
+		if($oneline && ($maxlen <= $entrieschrcount + $entrychrloadwkey + strlen($vstr))) {
+			// we have room for the key but not the value before we run over
+			array_push($rv,$sep,"'",$k,"' => '…'");
+			break;
+		}
+		// we have room for the whole entry!
+		array_push($rv,$sep,"'",$k,"' => ",$vstr);
+		$sep = $entrysep;
+		$entrieschrcount += $entrychrloadwkey + strlen($vstr);
 	}
-	if(count($aa) > 0) $rv[] = $entrysep;
-	$rv[] = ']';
-	$rv = implode('',$rv);
+	array_push($rv,$oneline ? '' : PHP_EOL,']');
+	$rv = "[ ".implode('',$rv);
 	return $rv;
 }
 
-function phpsh_showVar($v,$entrysep = "\n") {
+function phpsh_showVar($v,$maxlen=false) {
 	// if(is_object($v) && method_exists($v,'__to_string')) 
 	//	return $v->__toString();
 	// $rv = '(phpsh doesn\'t know how to string-ify this variable or result)';
 	
-	if(is_object($v)) 
-		return get_class($v).'('.phpsh_showVar((array)$v,$entrysep).')';
+	if(is_object($v)) {
+		$clsname = get_class($v); 
+		return "$clsname(".phpsh_showVar(
+			(array)$v,
+			max($maxlen - strlen($clsname) - 2/*()*/,0) ?: false
+		).')';
+	}
 
 	if(is_array($v)) 
-		return phpsh_lsaa_str($v,$entrysep);
+		return phpsh_lsaa_str($v,$maxlen);
 
 	if($v === null) 
 		return "null";
-	else 
-		return var_export($v,true);
+
+	$vrep = var_export($v,true);
+	return (!is_string($v) || $maxlen >= strlen($vrep)) ? 
+		$vrep : substr($vrep,0,$maxlen-2)."…'";
 }
 
 function phpsh_cmd_save($filename,$avoid_last=false) {
