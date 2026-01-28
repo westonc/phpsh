@@ -269,11 +269,14 @@ function phpsh_cmd_help() {
 Available phpsh commands:
   .h       - prints this command list
   .s <arg> - saves command history to filename <arg>
+  .i <arg> - shortcut for include(<arg>)
   .l <arg> - shortcut for include(<arg>)
   .r       - shortcut for include("$default_crash")
   .q       - quit
 
-Beyond that, everything else is simply filtered through PHP's `eval` function. phpsh will attempt to automatically yield a string representation of entries that don't end with a semi-colon or a block delimiter. 
+All other input is simply filtered through PHP's `eval` function. phpsh will attempt to automatically yield a string representation of entries that don't end with a semi-colon or a block delimiter. The last result is stored in the \$_ variable, as in perl or python. 
+
+The representation returned attempts to combine human-readability with valid php representation, one line per key of an array or property of an object. However, if the representation of an array or property value exceeds the line width, phpsh attempts to truncate it in a reasonable manner, indicated with UTF ellipses `…`.
 
 EOD;
 }
