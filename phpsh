@@ -77,7 +77,7 @@ do { // main read-eval-print loop
 	}
 
 	try {
-		$_ = eval($evalExp);
+		Phpsh::$_ = $_ = eval($evalExp);
 		if($type == 'expression')
 			echo phpsh_showVar($_),"\n"; 
 		$history[] = $entry['code'];	
@@ -90,6 +90,55 @@ do { // main read-eval-print loop
 	}
 	
 } while(TRUE);
+
+
+abstract class Phpsh {
+
+	static $_;
+	static $cwv;
+	static $cwvrefpath = [];
+	static $cwvstrpath = [];
+
+	static function cwv($n=null) { 
+		if($n===null) 
+			return (self::$cwv === null) ? $GLOBALS : self::$cwv; 
+		if($n == '..' || $n == '^') {
+			array_pop(self::$cwvstrpath);
+			return self::$cwv = array_pop(self::$cwvrefpath);
+		}
+		if($n[0] == '~' || $n[0] == '/') {
+			self::$cwvrefpath = [];
+			self::$cwvstrpath = [];
+			if($n = substr($n,1)) {
+				self::$cwv = $GLOBALS;
+				return self::cwv($n);
+			} else {
+				self::$cwv = null;
+				return true;
+			}
+		}
+		if(is_object(self::$cwv)) {
+			if(!isset(self::$cwv->$n)) 
+				return false;	
+			array_push(self::$cwvstrpath,"->$n");
+			array_push(self::$cwvrefpath,self::$cwv->$n);
+			return self::$cwv = self::$cwv->$n;	
+		}
+		if(is_array(self::$cwv)) {
+			if(!isset(self::$cwv[$n])) 
+				return false;	
+			array_push(self::$cwvstrpath,"[$n]");
+			array_push(self::$cwvrefpath,self::$cwv[$n]);
+			return self::$cwv = self::$cwv[$n];	
+		}
+		return false;
+	}
+
+	static function pwv() { 
+		return self::$cwv ? implode('',self::$cwvstrpath) : 'GLOBALS';
+	}
+	
+} 
 
 
 function phpsh_throw_error_exception($number = 0, $str = '',$file = null,$line = null) {
@@ -146,7 +195,7 @@ function phpsh_cmd($cmdstr) {
 		echo "missing phpsh command\n";
 		return false;
 	}
-	$cmd_parts = preg_split("/\s+/",$cmdstr,-1,PREG_SPLIT_NO_EMPTY);
+	$cmd_parts = preg_split("/(?<!\\\\)\s+/",$cmdstr,-1,PREG_SPLIT_NO_EMPTY);
 
 	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
 	switch($cmd) {
@@ -170,13 +219,15 @@ function phpsh_cmd($cmdstr) {
 				echo "can't find ",DEFAULT_CRASH,"\n";
 			break;
 		case 'v': 
-			echo "todo - focus on scope:\n";
+			$cwv = Phpsh::cwv(isset($cmd_parts[1]) ? $cmd_parts[1] : null);
+			echo "cwv: ",Phpsh::pwv(),"\n";
+			echo phpsh_showVar($cwv),"\n";
 			break;	
 		case 'h': 
 			phpsh_cmd_help();
 			break;
 		default:
-			echo "`$cmdstr`: command not found.\n";
+			echo "`$cmd`: command not found (",count($cmd_parts) - 1," args ignored)\n";
 			return false;
 	}
 	return true;
