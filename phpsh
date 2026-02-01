@@ -292,7 +292,7 @@ function phpsh_showVar($v,$maxlen=false) {
 		return "null";
 
 	$vrep = var_export($v,true);
-	return (!is_string($v) || $maxlen >= strlen($vrep)) ? 
+	return (!is_string($v) || !($maxlen) || $maxlen >= strlen($vrep)) ? 
 		$vrep : substr($vrep,0,$maxlen-2)."…'";
 }
 
