@@ -137,7 +137,6 @@ abstract class Phpsh {
 	static function pwv() { 
 		return self::$cwv ? implode('',self::$cwvstrpath) : 'GLOBALS';
 	}
-	
 } 
 
 
@@ -165,7 +164,7 @@ function phpsh_line_analyze($line) {
 
 function phpsh_read_entry() {
 	$line = phpsh_readln(MAIN_PROMPT);
-	if(empty($line[0]))
+	if(!isset($line[0]))
 		return null;
 
 	if(isset($line[0]) && $line[0] == '.' && !is_numeric($line[1])) 
