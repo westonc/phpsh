@@ -238,7 +238,9 @@ function phpsh_include($file) {
 	return file_exists($file) ? include_once($file) : false;
 }
 
-function phpsh_cols() { return (int)(getenv('COLUMNS') ?: `tput cols`); }
+function phpsh_cols() { 
+	return (int)(getenv('COLUMNS') ?: shell_exec('tput cols')); 
+}
 
 function phpsh_lsaa_str($aa,$maxlen=false) { 
 	if(! count($aa) > 0) return '[]';
