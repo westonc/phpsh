@@ -100,36 +100,46 @@ abstract class Phpsh {
 	static $cwvstrpath = [];
 
 	static function cwv($n=null) { 
-		if($n===null) 
-			return (self::$cwv === null) ? $GLOBALS : self::$cwv; 
+		if($n===null) {
+			$rv = self::$cwv ?: $GLOBALS; 
+			return $rv;
+		}
 		if($n == '..' || $n == '^') {
 			array_pop(self::$cwvstrpath);
-			return self::$cwv = array_pop(self::$cwvrefpath);
+			$rv = self::$cwv = array_pop(self::$cwvrefpath);
+			return $rv;
 		}
-		if($n[0] == '~' || $n[0] == '/') {
+		if($n[0] == '/') {
 			self::$cwvrefpath = [];
 			self::$cwvstrpath = [];
 			if($n = substr($n,1)) {
 				self::$cwv = $GLOBALS;
-				return self::cwv($n);
+				$rv = self::cwv($n);
+				return $rv;
 			} else {
 				self::$cwv = null;
 				return true;
 			}
 		}
-		if(is_object(self::$cwv)) {
-			if(!isset(self::$cwv->$n)) 
+		$cwv = self::cwv();
+		if(is_object($cwv)) {
+			if(!isset($cwv->$n)) {
 				return false;	
+			}
 			array_push(self::$cwvstrpath,"->$n");
-			array_push(self::$cwvrefpath,self::$cwv->$n);
-			return self::$cwv = self::$cwv->$n;	
+			array_push(self::$cwvrefpath,$cwv->$n);
+			self::$cwv = $cwv->$n;	
+			return $cwv;
+			
 		}
-		if(is_array(self::$cwv)) {
-			if(!isset(self::$cwv[$n])) 
+		if(is_array($cwv)) {
+			if(!isset($cwv[$n])) {
 				return false;	
+			}
 			array_push(self::$cwvstrpath,"[$n]");
-			array_push(self::$cwvrefpath,self::$cwv[$n]);
-			return self::$cwv = self::$cwv[$n];	
+			array_push(self::$cwvrefpath,$cwv[$n]);
+			self::$cwv = $cwv[$n];	
+			return self::$cwv;
 		}
 		return false;
 	}
@@ -137,6 +147,7 @@ abstract class Phpsh {
 	static function pwv() { 
 		return self::$cwv ? implode('',self::$cwvstrpath) : 'GLOBALS';
 	}
+		
 } 
 
 
