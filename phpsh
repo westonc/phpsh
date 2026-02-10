@@ -365,4 +365,3 @@ function phpsh_on_shutdown() {
 if(!function_exists('array_last')) {
 	function array_last(Array $a) { return $a ? current(array_slice($a,-1)) : null; }
 }
-?>
