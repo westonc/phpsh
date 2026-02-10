@@ -105,8 +105,13 @@ abstract class Phpsh {
 			return $rv;
 		}
 		if($n == '..') {
-			array_pop(self::$cwvstrpath);
-			$rv = self::$cwv = array_pop(self::$cwvrefpath);
+			if(!array_pop(self::$cwvrefpath)) {
+				self::$cwvstrpath = [];
+				$rv = self::$cwv = $GLOBALS;
+			} else {
+				array_pop(self::$cwvstrpath);
+				$rv = self::$cwv = array_last(self::$cwvrefpath);
+			}
 			return $rv;
 		}
 		if($n[0] == '/') {
@@ -129,7 +134,7 @@ abstract class Phpsh {
 			array_push(self::$cwvstrpath,"->$n");
 			array_push(self::$cwvrefpath,$cwv->$n);
 			self::$cwv = $cwv->$n;	
-			return $cwv;
+			return self::$cwv;
 			
 		}
 		if(is_array($cwv)) {
@@ -231,6 +236,7 @@ function phpsh_cmd($cmdstr) {
 			$cwv = Phpsh::cwv(isset($cmd_parts[1]) ? $cmd_parts[1] : null);
 			echo "cwv: ",Phpsh::pwv(),"\n";
 			echo phpsh_showVar($cwv),"\n";
+			unset($cwv);
 			break;	
 		case 'h': 
 			phpsh_cmd_help();
@@ -354,5 +360,9 @@ function phpsh_on_shutdown() {
 		echo "history saved to ",DEFAULT_CRASH,", use .r on next run to replay";
 	}
 	echo "\n";
+}
+
+if(!function_exists('array_last')) {
+	function array_last(Array $a) { return $a ? current(array_slice($a,-1)) : null; }
 }
 ?>
