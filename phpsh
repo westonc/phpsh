@@ -19,9 +19,11 @@ if(isset($argv)) { // process arguments as php to execute
 		if($arg === "-r" && file_exists(DEFAULT_CRASH)) {
 			include_once(DEFAULT_CRASH); 
 			echo "including ",DEFAULT_CRASH,"\n";
-		} else if(file_exists($arg)) {
+		} else if(!file_exists($arg)) {
+			echo "warning: $arg not found\n";
+		} else  {
 			include_once($arg);
-			echo "including $arg\n";
+			echo "including: $arg\n";
 		}
 	}
 }
@@ -61,8 +63,13 @@ do { // main read-eval-print loop
 	if(empty($entry))                             // easy case!
 		continue;
 
-	if(is_string($entry) && $entry[0] == '.') {   // phpsh command
-		phpsh_cmd(substr($entry,1));
+	if(is_string($entry) && $entry[0] == '.') {   // it's a phpsh command!
+		if($entry[1] == 'r')                      // but command shortcuts for 
+			include_once(DEFAULT_CRASH);          // include can't be handled 
+		elseif($entry[1] == 'i')                  // inside phpsh_cmd() or it
+			include_once(trim(substr($entry,3))); // ruins scope so they're here
+		else
+			phpsh_cmd(substr($entry,1));
 		continue;
 	}
 
@@ -218,24 +225,11 @@ function phpsh_cmd($cmdstr) {
 
 	$cmd = is_array($cmd_parts) ? $cmd_parts[0] : null;
 	switch($cmd) {
+		// r & i handled before phpsh_cmd is called for proper include scope
 		case 'q': 
 			exit;
 		case 's': 
 			phpsh_cmd_save($cmd_parts[1] ?? null);
-			break;
-		case 'i':
-			$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
-			if(file_exists($histfile)) {
-				include_once($histfile);
-				echo "pulling history in $histfile\n";
-			} else 
-				echo "can't find $histfile\n";
-			break;
-		case 'r':
-			if(file_exists(DEFAULT_CRASH))
-				include_once(DEFAULT_CRASH);
-			else 
-				echo "can't find ",DEFAULT_CRASH,"\n";
 			break;
 		case 'v': 
 			$cwv = Phpsh::cwv(isset($cmd_parts[1]) ? $cmd_parts[1] : null);
