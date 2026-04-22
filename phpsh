@@ -15,11 +15,15 @@ define('CONT_PROMPT','  ...> ');
 $history = [];
 
 if(isset($argv)) { // process arguments as php to execute
-	foreach($argv as $arg) 
-		if($arg != "-r") 
-			phpsh_include($arg);
-		else
-			phpsh_include(DEFAULT_CRASH); 
+	foreach(array_slice($argv,1) as $arg) {
+		if($arg === "-r" && file_exists(DEFAULT_CRASH)) {
+			include_once(DEFAULT_CRASH); 
+			echo "including ",DEFAULT_CRASH,"\n";
+		} else if(file_exists($arg)) {
+			include_once($arg);
+			echo "including $arg\n";
+		}
+	}
 }
 
 if(is_callable("readline")) { // figure out our readline strategy
@@ -221,14 +225,15 @@ function phpsh_cmd($cmdstr) {
 			break;
 		case 'i':
 			$histfile = $cmd_parts[1] ?? DEFAULT_HIST;
-			if(file_exists($histfile)) 
-				phpsh_include($histfile);
-			else 
+			if(file_exists($histfile)) {
+				include_once($histfile);
+				echo "pulling history in $histfile\n";
+			} else 
 				echo "can't find $histfile\n";
 			break;
 		case 'r':
 			if(file_exists(DEFAULT_CRASH))
-				phpsh_include(DEFAULT_CRASH);
+				include_once(DEFAULT_CRASH);
 			else 
 				echo "can't find ",DEFAULT_CRASH,"\n";
 			break;
@@ -246,12 +251,6 @@ function phpsh_cmd($cmdstr) {
 			return false;
 	}
 	return true;
-}
-
-function phpsh_include($file) {
-	if(preg_match('/phpsh$/',$file)) return true;
-	echo "phpsh_include($file)\n";
-	return file_exists($file) ? include_once($file) : false;
 }
 
 function phpsh_cols() { 
