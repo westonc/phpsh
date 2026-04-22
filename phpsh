@@ -252,7 +252,7 @@ function phpsh_cols() {
 }
 
 function phpsh_lsaa_str($aa,$maxlen=false) { 
-	if(! count($aa) > 0) return '[]';
+	if(empty($aa)) return '[]'; // more legible than ! count($aa) > 0?
 	$oneline = ($maxlen !== false);
 	$entrysep = $oneline ? ', ' : ','.PHP_EOL.' ';
 	$termcols = phpsh_cols();
