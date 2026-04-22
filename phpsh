@@ -179,7 +179,7 @@ function phpsh_line_analyze($line) {
 		switch($t[0] ?? $t) {
 			case '{': 
 			case T_CURLY_OPEN: $brace_depth_chg++; break;
-			//case T_CURLY_CLOSE: doesn't exist? What?
+			//case T_CURLY_CLOSE: doesn't exist!? address '}' instead
 			case '}': $brace_depth_chg--; 
 		}
 	}
